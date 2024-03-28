@@ -19,6 +19,6 @@ $dbconfig = array(
 
 $conn = new PDO("mysql:host=$hostname;dbname=$dbname", $username, $password);
 
-if (!$conn) {
-    die("Connection failed: " . $conn->connect_error);
+if (! $conn) {
+    die("Connection failed: " . $conn->errorInfo());
 }
