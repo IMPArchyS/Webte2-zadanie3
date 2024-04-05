@@ -4,12 +4,16 @@ version: '3.8'
 services:
     # Nginx Service
     nginx:
-        image: nginx:1.21
+        image: nginx:1.18
         ports:
+            - 702:443
             - 701:80
+            - 8282:8282
         volumes:
             - ./src:/var/www/php
             - ./.docker/nginx/conf.d:/etc/nginx/conf.d
+            - /etc/ssl/certs/webte_fei_stuba_sk.pem:/etc/nginx/certs/webte_fei_stuba_sk.pem
+            - /etc/ssl/private/webte.fei.stuba.sk.key:/etc/nginx/private/webte.fei.stuba.sk.key
         depends_on:
             - php
 
@@ -19,3 +23,4 @@ services:
         working_dir: /var/www/php
         volumes:
             - ./src:/var/www/php
+        command: sh -c "php ./wsserver.php start -d && php-fpm"
