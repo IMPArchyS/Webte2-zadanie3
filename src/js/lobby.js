@@ -7,20 +7,29 @@ ws.onopen = function (e) {};
 
 ws.onmessage = function (e) {
     data = JSON.parse(e.data);
+    console.log(data);
+    window.data = data;
     if (data.uuid) {
         nameSpan.innerHTML = `@${data.uuid}`;
         username = data.uuid;
     }
-    let playerData = JSON.parse(e.data);
-    playerList.innerHTML = '';
-    for (let playerId in playerData) {
-        const player = document.createElement('p');
-        player.classList.add('m-0', 'text-white');
-        player.textContent = playerData[playerId];
-        playerList.appendChild(player);
+    if (data.users) {
+        playerList.innerHTML = '';
+        for (let playerId in data.users) {
+            const player = document.createElement('p');
+            player.classList.add('m-0', 'text-white');
+            player.textContent = playerId;
+            playerList.appendChild(player);
+        }
+    }
+    if (data.type === 'startGame') {
+        console.log('GAME STARTED');
+        $('#menuContainer').addClass('d-none');
     }
 };
 
-ws.onclose = function (e) {
-    ws.close();
-};
+document.getElementById('start-game').addEventListener('click', function () {
+    ws.send(JSON.stringify({ type: 'startGame' }));
+});
+
+ws.onclose = function (e) {};

@@ -14,7 +14,7 @@
 
 <body>
     <div class="container">
-        <h3 class="text-center" id="alias">Tvoj Alias: </h3>
+        <h3 class="text-center text-white impBold">Your ID: <span class="impPlayerTag impBold" id="alias"></span></h3>
         <div id="canvas-container" class="position-relative mb-0">
             <!--  p5.js will insert the canvas here  -->
         </div>

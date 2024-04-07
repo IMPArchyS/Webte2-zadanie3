@@ -15,21 +15,24 @@ $ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList) {
     $userList[$uuid] = $uuid;
     $connection->uuid = $uuid;
     foreach ($ws_worker->connections as $conn) {
-        $conn->send(json_encode($userList));
+        $conn->send(json_encode(["users" => $userList]));
     }
 };
 
 // When receiving data from the client, return "hello $data" to the client
 $ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_worker, &$userList) {
-    foreach ($ws_worker->connections as $conn) {
-        $conn->send($data);
+    $message = json_decode($data);
+    if ($message->type === 'startGame') {
+        foreach ($ws_worker->connections as $conn) {
+            $conn->send(json_encode(['type' => 'startGame']));
+        }
     }
 };
 
 $ws_worker->onClose = function ($connection) use ($ws_worker, &$userList) {
     unset ($userList[$connection->uuid]);
     foreach ($ws_worker->connections as $conn) {
-        $conn->send(json_encode($userList));
+        $conn->send(json_encode(["users" => $userList]));
     }
 };
 
