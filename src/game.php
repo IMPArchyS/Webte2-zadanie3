@@ -14,10 +14,13 @@
 
 <body>
     <div class="container">
-        <h3 class="text-center" id="alias">Your ID: </h3>
-        <div id="playerList"></div>
-        <button class="btn btn-primary" id="start-game">Start Game</button>
+        <h3 class="text-center" id="alias">Tvoj Alias: </h3>
+        <div id="canvas-container" class="position-relative mb-0">
+            <!--  p5.js will insert the canvas here  -->
+        </div>
     </div>
+    <!--  game over modal  -->
+
 </body>
 <script src="main.js"></script>
 
