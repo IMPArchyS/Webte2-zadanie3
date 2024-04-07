@@ -1,0 +1,38 @@
+body {
+    background-image: url('../images/bg.png');
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-size: cover;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.impBold {
+    font-weight: bold !important;
+}
+
+.impContainer {
+    background-color: rgb(56, 64, 71);
+    opacity: 90%;
+    border-radius: 1rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    margin-top: 1rem;
+}
+
+.impPlayerTag {
+    color: aquamarine !important;
+}
+.impPlayers {
+    color: powderblue !important;
+}
+
+.impMainName {
+    color: cornflowerblue !important;
+    font-size: larger !important;
+}
+
+footer {
+    margin-top: auto;
+}

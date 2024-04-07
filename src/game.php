@@ -20,8 +20,12 @@
         </div>
     </div>
     <!--  game over modal  -->
-
+    <footer class="bg-dark text-white">
+        <div class="container py-4 text-center">
+            <p class="text-center"> 2024 Webové technológie 2</p>
+        </div>
+    </footer>
 </body>
-<script src="main.js"></script>
+<script src="js/game.js"></script>
 
 </html>
