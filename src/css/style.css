@@ -33,6 +33,6 @@ body {
     font-size: larger !important;
 }
 
-footer {
-    margin-top: auto;
+.impFooter {
+    margin-top: auto !important;
 }

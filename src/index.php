@@ -33,12 +33,12 @@
         </div>
     </div>
     </div>
-    <footer class="bg-dark text-white">
+    <footer class="bg-dark text-white impFooter">
         <div class="container py-4 text-center">
             <p class="text-center"> 2024 Webové technológie 2</p>
         </div>
     </footer>
 </body>
-<script src="js/lobby.js"></script>
+<script src="js/Lobby.js"></script>
 
 </html>
