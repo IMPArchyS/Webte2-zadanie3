@@ -82,7 +82,10 @@ let sketch = (level) => {
 
     level.playerController = () => {
         if (!player.dead) {
-            if (level.playerMovement()) level.drawPlayer();
+            level.checkBase();
+            if (level.playerMovement()) {
+                level.drawPlayer();
+            }
         }
     };
 
@@ -98,7 +101,7 @@ let sketch = (level) => {
             } else if (!currentSquare.fresh) {
                 playerTrail.push(currentSquare);
             }
-            currentSquare.fresh = true;
+            if (!currentSquare.claimed) currentSquare.fresh = true;
             nextSquare.owner = username;
             player.x = nextSquare.x;
             player.y = nextSquare.y;
@@ -106,6 +109,39 @@ let sketch = (level) => {
         let speed = constants.PLAYER_SPEED;
         level.frameRate(speed);
         return true;
+    };
+
+    level.checkBase = () => {
+        if (grid[player.x][player.y].claimed) {
+            console.log('FILL for ' + username);
+            cellsToFill = level.fillGrid();
+            cellsToFill.forEach((cell) => {
+                cell.claimed = true;
+                cell.fresh = false;
+                cell.owner = username;
+            });
+            return true;
+        } else {
+            return false;
+        }
+    };
+
+    level.fillGrid = () => {
+        const cellsInside = [];
+        const minX = Math.min(...playerTrail.map((square) => square.x));
+        const maxX = Math.max(...playerTrail.map((square) => square.x));
+        const minY = Math.min(...playerTrail.map((square) => square.y));
+        const maxY = Math.max(...playerTrail.map((square) => square.y));
+
+        for (let x = 0; x < numColumns; x++) {
+            for (let y = 0; y < numRows; y++) {
+                if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+                    cellsInside.push(grid[x][y]); // Or push the coordinates (x, y) if needed
+                }
+            }
+        }
+
+        return cellsInside;
     };
 
     level.playerDeath = () => {
