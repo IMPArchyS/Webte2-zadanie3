@@ -114,7 +114,7 @@ let sketch = (level) => {
     level.checkBase = () => {
         if (grid[player.x][player.y].claimed) {
             console.log('FILL for ' + username);
-            cellsToFill = level.fillGrid();
+            cellsToFill = level.fillLoop(playerTrail);
             cellsToFill.forEach((cell) => {
                 cell.claimed = true;
                 cell.fresh = false;
@@ -126,22 +126,51 @@ let sketch = (level) => {
         }
     };
 
-    level.fillGrid = () => {
-        const cellsInside = [];
-        const minX = Math.min(...playerTrail.map((square) => square.x));
-        const maxX = Math.max(...playerTrail.map((square) => square.x));
-        const minY = Math.min(...playerTrail.map((square) => square.y));
-        const maxY = Math.max(...playerTrail.map((square) => square.y));
+    level.fillLoop = (loopTrail) => {
+        // Find the bounds of the loop
+        let gotCells = [];
+        const minX = Math.min(...loopTrail.map((pos) => pos.x));
+        const maxX = Math.max(...loopTrail.map((pos) => pos.x));
+        const minY = Math.min(...loopTrail.map((pos) => pos.y));
+        const maxY = Math.max(...loopTrail.map((pos) => pos.y));
 
-        for (let x = 0; x < numColumns; x++) {
-            for (let y = 0; y < numRows; y++) {
-                if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
-                    cellsInside.push(grid[x][y]); // Or push the coordinates (x, y) if needed
+        // This simple approach checks each cell within the loop's bounding box
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                // Check if the point is inside the loop
+                if (level.fillGrid(x, y, loopTrail)) {
+                    gotCells.push(grid[x][y]); // Fill the cell
+                }
+            }
+        }
+        // Add the missing cells from the playerTrail to cellsToFill
+        playerTrail.forEach((cell) => {
+            if (!gotCells.includes(cell)) {
+                gotCells.push(cell);
+            }
+        });
+        return gotCells;
+    };
+
+    level.fillGrid = (x, y, loopTrail) => {
+        // Count intersections of a horizontal line from the left to the point
+        let intersections = 0;
+        for (let i = 0; i < loopTrail.length; i++) {
+            const start = loopTrail[i];
+            const end = loopTrail[(i + 1) % loopTrail.length]; // Wrap to start for last segment
+
+            // Check if the line segment intersects with the horizontal line at y
+            if ((start.y <= y && end.y > y) || (end.y <= y && start.y > y)) {
+                // Find the x coordinate of the intersection
+                const intersectX = start.x + ((y - start.y) * (end.x - start.x)) / (end.y - start.y);
+                if (intersectX < x) {
+                    intersections++;
                 }
             }
         }
 
-        return cellsInside;
+        // Inside if the number of intersections is odd
+        return intersections % 2 !== 0;
     };
 
     level.playerDeath = () => {
