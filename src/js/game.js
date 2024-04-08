@@ -2,6 +2,8 @@ console.log('DEBUG TEST');
 
 import * as constants from './Constants.js';
 
+let username = 'UUID';
+
 let sketch = (level) => {
     const numColumns = 10;
     const numRows = 10;
@@ -13,6 +15,8 @@ let sketch = (level) => {
     let yOffset = 0;
 
     let player;
+    let playerTrail = [];
+    let cellsToFill = [];
 
     level.preload = () => {};
 
@@ -26,82 +30,14 @@ let sketch = (level) => {
 
     level.draw = () => {
         level.background(50, 50, 50, 255);
-        level.playerMovement();
+        level.playerController();
         level.drawGrid();
-        level.drawPlayer();
     };
 
     level.windowResized = () => {
         let containerWidth = level.select('#canvas-container').width;
         let footerHeight = level.select('footer').height;
         level.resizeCanvas(containerWidth, level.windowHeight - footerHeight);
-    };
-
-    level.createGrid = () => {
-        gridSize = Math.min(level.width - margin * 2, level.height - margin * 2) / Math.max(numColumns, numRows);
-        xOffset = margin + (level.width - gridSize * numColumns - margin * 2) / 2;
-        yOffset = margin + (level.height - gridSize * numRows - margin * 2) / 2;
-        for (let i = 0; i < numColumns; i++) {
-            grid[i] = [];
-            for (let j = 0; j < numRows; j++) {
-                let x = xOffset + i * gridSize;
-                let y = yOffset + j * gridSize;
-
-                let square = {
-                    x: i,
-                    y: j,
-                    owner: 'none',
-                    fresh: false,
-                    posX: x,
-                    posY: y,
-                    size: gridSize,
-                };
-                grid[i][j] = square;
-            }
-        }
-    };
-
-    level.drawGrid = () => {
-        level.stroke(255);
-        level.strokeWeight(1);
-
-        for (let i = 0; i < numColumns; i++) {
-            for (let j = 0; j < numRows; j++) {
-                let square = grid[i][j];
-                level.noFill();
-                level.rect(square.posX, square.posY, gridSize, gridSize);
-                level.textAlign(level.CENTER, level.CENTER);
-                level.text(square.x + ',' + square.y, square.posX + gridSize / 2, square.posY + gridSize / 2);
-
-                if (square.fresh) {
-                    level.fill(255, 0, 0, 127);
-                    level.rect(square.posX, square.posY, gridSize, gridSize);
-                }
-            }
-        }
-    };
-
-    level.createPlayer = () => {
-        let randomX, randomY, randomFacing;
-        do {
-            randomX = Math.floor(Math.random() * numColumns);
-            randomY = Math.floor(Math.random() * numRows);
-            randomFacing = ['N', 'S', 'W', 'E'][Math.floor(Math.random() * 4)];
-        } while (grid[randomX][randomY].owner !== 'none');
-
-        player = {
-            x: randomX,
-            y: randomY,
-            size: gridSize,
-            facing: randomFacing,
-        };
-
-        grid[randomX][randomY].owner = 'player';
-    };
-
-    level.drawPlayer = () => {
-        level.fill(255, 0, 0);
-        level.rect(grid[player.x][player.y].posX, grid[player.x][player.y].posY, player.size, gridSize);
     };
 
     level.playerDirection = () => {
@@ -144,21 +80,121 @@ let sketch = (level) => {
         return nextSquare;
     };
 
+    level.playerController = () => {
+        if (!player.dead) {
+            if (level.playerMovement()) level.drawPlayer();
+        }
+    };
+
     level.playerMovement = () => {
         let currentSquare = grid[player.x][player.y];
         let nextSquare = level.playerDirection();
+
         // Move the player to the next square if it's not occupied and not null
         if (nextSquare) {
+            if (nextSquare.fresh && nextSquare.owner === username) {
+                level.playerDeath();
+                return false;
+            } else if (!currentSquare.fresh) {
+                playerTrail.push(currentSquare);
+            }
             currentSquare.fresh = true;
-            nextSquare.owner = 'player';
+            nextSquare.owner = username;
             player.x = nextSquare.x;
             player.y = nextSquare.y;
         }
         let speed = constants.PLAYER_SPEED;
         level.frameRate(speed);
+        return true;
     };
 
-    level.fillSpace = () => {};
+    level.playerDeath = () => {
+        player.dead = true;
+        console.log(username + ' is dead');
+        for (let i = 0; i < numColumns; i++) {
+            for (let j = 0; j < numRows; j++) {
+                if (grid[i][j].fresh || grid[i][j].claimed) {
+                    grid[i][j].fresh = false;
+                    grid[i][j].claimed = false;
+                    grid[i][j].owner = 'none';
+                }
+            }
+        }
+    };
+
+    level.drawPlayer = () => {
+        level.fill(255, 0, 0);
+        level.rect(grid[player.x][player.y].posX, grid[player.x][player.y].posY, player.size, gridSize);
+    };
+
+    level.createPlayer = () => {
+        let randomX, randomY, randomFacing;
+        do {
+            randomX = Math.floor(Math.random() * numColumns);
+            randomY = Math.floor(Math.random() * numRows);
+            randomFacing = ['N', 'S', 'W', 'E'][Math.floor(Math.random() * 4)];
+        } while (grid[randomX][randomY].owner !== 'none');
+
+        player = {
+            x: randomX,
+            y: randomY,
+            size: gridSize,
+            facing: randomFacing,
+            dead: false,
+        };
+
+        grid[randomX][randomY].owner = username;
+        grid[randomX][randomY].fresh = false;
+        grid[randomX][randomY].claimed = true;
+    };
+
+    level.createGrid = () => {
+        gridSize = Math.min(level.width - margin * 2, level.height - margin * 2) / Math.max(numColumns, numRows);
+        xOffset = margin + (level.width - gridSize * numColumns - margin * 2) / 2;
+        yOffset = margin + (level.height - gridSize * numRows - margin * 2) / 2;
+        for (let i = 0; i < numColumns; i++) {
+            grid[i] = [];
+            for (let j = 0; j < numRows; j++) {
+                let x = xOffset + i * gridSize;
+                let y = yOffset + j * gridSize;
+
+                let square = {
+                    x: i,
+                    y: j,
+                    owner: 'none',
+                    fresh: false,
+                    claimed: false,
+                    posX: x,
+                    posY: y,
+                    size: gridSize,
+                };
+                grid[i][j] = square;
+            }
+        }
+    };
+
+    level.drawGrid = () => {
+        level.stroke(255);
+        level.strokeWeight(1);
+
+        for (let i = 0; i < numColumns; i++) {
+            for (let j = 0; j < numRows; j++) {
+                let square = grid[i][j];
+                level.noFill();
+                level.rect(square.posX, square.posY, gridSize, gridSize);
+                level.textAlign(level.CENTER, level.CENTER);
+                level.text(square.x + ',' + square.y, square.posX + gridSize / 2, square.posY + gridSize / 2);
+
+                if (square.fresh && !square.claimed) {
+                    level.fill(150, 0, 0, 127);
+                    level.rect(square.posX, square.posY, gridSize, gridSize);
+                } else if (square.claimed) {
+                    level.fill(200, 0, 0, 240);
+                    level.rect(square.posX, square.posY, gridSize, gridSize);
+                }
+            }
+        }
+    };
 };
 
 let p5level = new p5(sketch);
