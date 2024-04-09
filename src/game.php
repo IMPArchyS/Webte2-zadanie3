@@ -9,10 +9,9 @@
     <link rel="stylesheet" href="css/game.css">
     <script src="node_modules/p5/lib/p5.min.js"></script>
     <script type="module" src="js/Game.js"></script>
-
     <script src="node_modules/jquery/dist/jquery.min.js"></script>
     <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
-    <title>PaperSockets</title>
+    <title>PaperSocketsGame</title>
 </head>
 
 <body>

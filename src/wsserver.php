@@ -9,10 +9,17 @@ $ws_worker->count = 1; // 1 proces
 
 $userList = array();
 
-$ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList) {
+$userColors = array();
+$colors = ['red', 'green', 'yellow', 'blue', "pink", "orange"];
+
+
+$ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList, &$colors, &$userColors) {
     $uuid = uniqid();
-    $connection->send(json_encode(["uuid" => $uuid]));
-    $userList[$uuid] = $uuid;
+    $availableColors = array_diff($colors, $userColors);
+    $randomColor = $availableColors[array_rand($availableColors)];
+    $userColors[$connection->uuid] = $randomColor;
+    $connection->send(json_encode(["uuid" => $uuid, "color" => $randomColor]));
+    $userList[$uuid] = array ($uuid, $randomColor);
     $connection->uuid = $uuid;
     foreach ($ws_worker->connections as $conn) {
         $conn->send(json_encode(["users" => $userList]));
@@ -27,10 +34,16 @@ $ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_wor
             $conn->send(json_encode(['type' => 'startGame']));
         }
     }
+    if ($message->type === "grid") {
+        foreach ($ws_worker->connections as $conn) {
+            $conn->send(json_encode(['type' => 'gotGrid']));
+        }
+    }
 };
 
-$ws_worker->onClose = function ($connection) use ($ws_worker, &$userList) {
+$ws_worker->onClose = function ($connection) use ($ws_worker, &$userList, &$userColors) {
     unset ($userList[$connection->uuid]);
+    unset ($userColors[$connection->uuid]);
     foreach ($ws_worker->connections as $conn) {
         $conn->send(json_encode(["users" => $userList]));
     }

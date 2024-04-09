@@ -186,6 +186,7 @@ let sketch = (level) => {
         }
     };
 
+    // DONE
     level.drawPlayer = () => {
         level.fill(playerColor.player.r, playerColor.player.g, playerColor.player.b);
         level.rect(grid[player.x][player.y].posX, grid[player.x][player.y].posY, player.size, gridSize);
