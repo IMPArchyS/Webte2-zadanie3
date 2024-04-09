@@ -27,8 +27,9 @@ let sketch = (level) => {
     level.preload = () => {};
 
     level.setup = () => {
-        let canvas = level.createCanvas(level.windowWidth, level.windowHeight);
-        canvas.parent('canvas-container').addClass('img-fluid');
+        console.log('V1-3');
+        let canvas = level.createCanvas(window.innerWidth, window.innerHeight);
+        canvas.parent('canvas-container').addClass('impCanvas');
         level.windowResized();
         level.createGrid();
         level.createPlayer();
@@ -42,8 +43,7 @@ let sketch = (level) => {
 
     level.windowResized = () => {
         let containerWidth = level.select('#canvas-container').width;
-        let footerHeight = level.select('footer').height;
-        level.resizeCanvas(containerWidth, level.windowHeight - footerHeight);
+        level.resizeCanvas(containerWidth, level.select('#canvas-container').height);
         level.updateGridSize();
     };
 
