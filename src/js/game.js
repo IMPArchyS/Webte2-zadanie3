@@ -22,7 +22,7 @@ let sketch = (level) => {
 
     level.setup = () => {
         let canvas = level.createCanvas(level.windowWidth, level.windowHeight);
-        canvas.parent('canvas-container');
+        canvas.parent('canvas-container').addClass('img-fluid');
         level.windowResized();
         level.createGrid();
         level.createPlayer();
@@ -38,6 +38,7 @@ let sketch = (level) => {
         let containerWidth = level.select('#canvas-container').width;
         let footerHeight = level.select('footer').height;
         level.resizeCanvas(containerWidth, level.windowHeight - footerHeight);
+        level.updateGridSize();
     };
 
     level.playerDirection = () => {
@@ -234,6 +235,23 @@ let sketch = (level) => {
                     size: gridSize,
                 };
                 grid[i][j] = square;
+            }
+        }
+    };
+
+    level.updateGridSize = () => {
+        if (grid.length > 0) {
+            gridSize = Math.min(level.width - margin * 2, level.height - margin * 2) / Math.max(numColumns, numRows);
+            xOffset = margin + (level.width - gridSize * numColumns - margin * 2) / 2;
+            yOffset = margin + (level.height - gridSize * numRows - margin * 2) / 2;
+            for (let i = 0; i < numColumns; i++) {
+                for (let j = 0; j < numRows; j++) {
+                    let x = xOffset + i * gridSize;
+                    let y = yOffset + j * gridSize;
+                    grid[i][j].size = gridSize;
+                    grid[i][j].posX = x;
+                    grid[i][j].posY = y;
+                }
             }
         }
     };

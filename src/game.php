@@ -15,7 +15,8 @@
 </head>
 
 <body>
-    <div class="container my-2" id="canvas-container">
+    <div class="container my-2 impContainer" id="canvas-container">
+        <h1>TEST</h1>
     </div>
     <!--  game over modal  -->
     <footer class="bg-dark text-white">
