@@ -8,10 +8,11 @@ $ws_worker = new Worker("websocket://0.0.0.0:8282");
 $ws_worker->count = 1; // 1 proces
 
 $userList = array();
-
 $userColors = array();
 $colors = ['red', 'green', 'yellow', 'blue', "pink", "orange"];
 
+$grid = array();
+$globalGrid = [];
 
 $ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList, &$colors, &$userColors) {
     $uuid = uniqid();
@@ -27,16 +28,36 @@ $ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList, &$co
 };
 
 // When receiving data from the client, return "hello $data" to the client
-$ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_worker, &$userList) {
+$ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_worker, &$userList, &$grid, &$globalGrid) {
     $message = json_decode($data);
     if ($message->type === 'startGame') {
         foreach ($ws_worker->connections as $conn) {
             $conn->send(json_encode(['type' => 'startGame']));
         }
     }
-    if ($message->type === "grid") {
+
+    if ($message->type === "startGrid") {
         foreach ($ws_worker->connections as $conn) {
-            $conn->send(json_encode(['type' => 'gotGrid']));
+            $grid = $message->data;
+            $conn->send(json_encode(['type' => 'startGrid', "grid" => $grid]));
+        }
+    }
+
+    if ($message->type === "updatePlayerCells") {
+        foreach ($ws_worker->connections as $conn) {
+            $conn->send(json_encode(['type' => 'updatePlayerCells', "cell" => $message->data]));
+        }
+    }
+
+    if ($message->type === "initPlayers") {
+        foreach ($ws_worker->connections as $conn) {
+            $conn->send(json_encode(['type' => 'initPlayers', "player" => $message->data]));
+        }
+    }
+
+    if ($message->type === "player") {
+        foreach ($ws_worker->connections as $conn) {
+            $conn->send(json_encode(['type' => 'gotPlayer', "player" => $message->data]));
         }
     }
 };

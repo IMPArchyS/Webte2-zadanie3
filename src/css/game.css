@@ -4,6 +4,30 @@ body {
     overflow: hidden;
 }
 
+.imp-red {
+    color: rgb(255, 0, 0) !important;
+}
+
+.imp-green {
+    color: rgb(0, 128, 0) !important;
+}
+
+.imp-yellow {
+    color: rgb(255, 255, 0) !important;
+}
+
+.imp-blue {
+    color: rgb(0, 0, 255) !important;
+}
+
+.imp-pink {
+    color: rgb(255, 192, 203) !important;
+}
+
+.imp-orange {
+    color: rgb(255, 165, 0) !important;
+}
+
 .impGUI {
     z-index: 15 !important;
     margin-top: 0.5rem !important;
