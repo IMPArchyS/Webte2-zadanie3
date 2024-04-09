@@ -15,6 +15,12 @@ let sketch = (level) => {
     let yOffset = 0;
 
     let player;
+    let playerColor = {
+        player: { r: 255, g: 0, b: 0 },
+        fresh: { r: 230, g: 0, b: 0 },
+        claimed: { r: 150, g: 0, b: 0 },
+    };
+
     let playerTrail = [];
     let cellsToFill = [];
 
@@ -116,6 +122,7 @@ let sketch = (level) => {
         if (grid[player.x][player.y].claimed) {
             console.log('FILL for ' + username);
             cellsToFill = level.fillLoop(playerTrail);
+            if (cellsToFill.length < 1) playerTrail = [];
             cellsToFill.forEach((cell) => {
                 cell.claimed = true;
                 cell.fresh = false;
@@ -127,25 +134,21 @@ let sketch = (level) => {
         }
     };
 
-    level.fillLoop = (loopTrail) => {
-        // Find the bounds of the loop
+    level.fillLoop = (Trail) => {
         let gotCells = [];
-        const minX = Math.min(...loopTrail.map((pos) => pos.x));
-        const maxX = Math.max(...loopTrail.map((pos) => pos.x));
-        const minY = Math.min(...loopTrail.map((pos) => pos.y));
-        const maxY = Math.max(...loopTrail.map((pos) => pos.y));
+        const minX = Math.min(...Trail.map((pos) => pos.x));
+        const maxX = Math.max(...Trail.map((pos) => pos.x));
+        const minY = Math.min(...Trail.map((pos) => pos.y));
+        const maxY = Math.max(...Trail.map((pos) => pos.y));
 
-        // This simple approach checks each cell within the loop's bounding box
         for (let x = minX; x <= maxX; x++) {
             for (let y = minY; y <= maxY; y++) {
-                // Check if the point is inside the loop
-                if (level.fillGrid(x, y, loopTrail)) {
-                    gotCells.push(grid[x][y]); // Fill the cell
+                if (level.fillGrid(x, y, Trail)) {
+                    gotCells.push(grid[x][y]);
                 }
             }
         }
-        // Add the missing cells from the playerTrail to cellsToFill
-        playerTrail.forEach((cell) => {
+        Trail.forEach((cell) => {
             if (!gotCells.includes(cell)) {
                 gotCells.push(cell);
             }
@@ -153,24 +156,19 @@ let sketch = (level) => {
         return gotCells;
     };
 
-    level.fillGrid = (x, y, loopTrail) => {
-        // Count intersections of a horizontal line from the left to the point
+    level.fillGrid = (x, y, Trail) => {
         let intersections = 0;
-        for (let i = 0; i < loopTrail.length; i++) {
-            const start = loopTrail[i];
-            const end = loopTrail[(i + 1) % loopTrail.length]; // Wrap to start for last segment
+        for (let i = 0; i < Trail.length; i++) {
+            const start = Trail[i];
+            const end = Trail[(i + 1) % Trail.length];
 
-            // Check if the line segment intersects with the horizontal line at y
             if ((start.y <= y && end.y > y) || (end.y <= y && start.y > y)) {
-                // Find the x coordinate of the intersection
                 const intersectX = start.x + ((y - start.y) * (end.x - start.x)) / (end.y - start.y);
                 if (intersectX < x) {
                     intersections++;
                 }
             }
         }
-
-        // Inside if the number of intersections is odd
         return intersections % 2 !== 0;
     };
 
@@ -189,7 +187,7 @@ let sketch = (level) => {
     };
 
     level.drawPlayer = () => {
-        level.fill(255, 0, 0);
+        level.fill(playerColor.player.r, playerColor.player.g, playerColor.player.b);
         level.rect(grid[player.x][player.y].posX, grid[player.x][player.y].posY, player.size, gridSize);
     };
 
@@ -269,10 +267,10 @@ let sketch = (level) => {
                 level.text(square.x + ',' + square.y, square.posX + gridSize / 2, square.posY + gridSize / 2);
 
                 if (square.fresh && !square.claimed) {
-                    level.fill(150, 0, 0, 127);
+                    level.fill(playerColor.fresh.r, playerColor.fresh.g, playerColor.fresh.b, 200);
                     level.rect(square.posX, square.posY, gridSize, gridSize);
                 } else if (square.claimed) {
-                    level.fill(200, 0, 0, 240);
+                    level.fill(playerColor.claimed.r, playerColor.claimed.g, playerColor.claimed.b, 200);
                     level.rect(square.posX, square.posY, gridSize, gridSize);
                 }
             }
