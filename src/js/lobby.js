@@ -22,6 +22,7 @@ let grid = [];
 let gridSize = 0;
 let xOffset = 0;
 let yOffset = 0;
+let gameEnded = false;
 
 let player = {
     name: '',
@@ -91,6 +92,12 @@ ws.onmessage = function (e) {
         }
     }
 
+    if (data.type === 'WonGame') {
+        let p = data.player;
+        gameEnded = true;
+        console.log(p.name + ' WON');
+    }
+
     if (data.type === 'updateCurrentPlayerCells') {
         let sq = data.cell;
         if (sq.owner !== player.name) {
@@ -148,6 +155,16 @@ let sketch = (level) => {
         level.playerController();
         ws.send(JSON.stringify({ type: 'player', data: player }));
         level.drawGrid();
+        level.checkWinCondition();
+    };
+
+    level.checkWinCondition = () => {
+        if (!player.dead && enemies.every((enemy) => enemy.dead)) {
+            level.noLoop();
+            ws.send(JSON.stringify({ type: 'WonGame', data: player }));
+        } else if (gameEnded) {
+            level.noLoop();
+        }
     };
 
     level.windowResized = () => {
@@ -201,7 +218,7 @@ let sketch = (level) => {
     };
 
     level.playerController = () => {
-        //level.checkBase();
+        level.checkBase();
         level.playerMovement();
         level.drawPlayers();
     };
@@ -263,6 +280,7 @@ let sketch = (level) => {
                 currentSquare.fresh = true;
             }
             level.killEnemy(nextSquare);
+            if (nextSquare.owner !== player.name && nextSquare.claimed) nextSquare.claimed = false;
             nextSquare.owner = username;
             player.x = nextSquare.x;
             player.y = nextSquare.y;
@@ -308,6 +326,61 @@ let sketch = (level) => {
                 ws.send(JSON.stringify({ type: 'playerDead', data: enemy }));
             }
         }
+    };
+
+    level.checkBase = () => {
+        if (grid[player.x][player.y].claimed && grid[player.x][player.y].owner === player.name) {
+            console.log('FILL for ' + username);
+            player.cellsToFill = level.fillLoop(player.trail);
+            if (player.cellsToFill.length < 1) player.trail = [];
+            player.cellsToFill.forEach((cell) => {
+                cell.claimed = true;
+                cell.fresh = false;
+                cell.owner = username;
+                ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: cell }));
+            });
+            return true;
+        } else {
+            return false;
+        }
+    };
+
+    level.fillLoop = (Trail) => {
+        let gotCells = [];
+        const minX = Math.min(...Trail.map((pos) => pos.x));
+        const maxX = Math.max(...Trail.map((pos) => pos.x));
+        const minY = Math.min(...Trail.map((pos) => pos.y));
+        const maxY = Math.max(...Trail.map((pos) => pos.y));
+
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                if (level.fillGrid(x, y, Trail)) {
+                    gotCells.push(grid[x][y]);
+                }
+            }
+        }
+        Trail.forEach((cell) => {
+            if (!gotCells.includes(cell)) {
+                gotCells.push(cell);
+            }
+        });
+        return gotCells;
+    };
+
+    level.fillGrid = (x, y, Trail) => {
+        let intersections = 0;
+        for (let i = 0; i < Trail.length; i++) {
+            const start = Trail[i];
+            const end = Trail[(i + 1) % Trail.length];
+
+            if ((start.y <= y && end.y > y) || (end.y <= y && start.y > y)) {
+                const intersectX = start.x + ((y - start.y) * (end.x - start.x)) / (end.y - start.y);
+                if (intersectX < x) {
+                    intersections++;
+                }
+            }
+        }
+        return intersections % 2 !== 0;
     };
 
     level.createGrid = () => {

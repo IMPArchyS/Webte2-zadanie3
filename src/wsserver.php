@@ -61,6 +61,12 @@ $ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_wor
         }
     }
 
+    if ($message->type === "WonGame") {
+        foreach ($ws_worker->connections as $conn) {
+            $conn->send(json_encode(['type' => 'WonGame', "player" => $message->data]));
+        }
+    }
+
     if ($message->type === "initPlayers") {
         foreach ($ws_worker->connections as $conn) {
             $conn->send(json_encode(['type' => 'initPlayers', "player" => $message->data]));
