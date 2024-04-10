@@ -43,9 +43,21 @@ $ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_wor
         }
     }
 
-    if ($message->type === "updatePlayerCells") {
+    if ($message->type === "updateNextPlayerCells") {
         foreach ($ws_worker->connections as $conn) {
-            $conn->send(json_encode(['type' => 'updatePlayerCells', "cell" => $message->data]));
+            $conn->send(json_encode(['type' => 'updateNextPlayerCells', "cell" => $message->data]));
+        }
+    }
+
+    if ($message->type === "playerDead") {
+        foreach ($ws_worker->connections as $conn) {
+            $conn->send(json_encode(['type' => 'playerDead', "player" => $message->data]));
+        }
+    }
+
+    if ($message->type === "updateCurrentPlayerCells") {
+        foreach ($ws_worker->connections as $conn) {
+            $conn->send(json_encode(['type' => 'updateCurrentPlayerCells', "cell" => $message->data]));
         }
     }
 

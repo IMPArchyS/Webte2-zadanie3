@@ -79,14 +79,30 @@ ws.onmessage = function (e) {
         if (data.player.name !== username) {
             enemies.push(data.player);
         }
-        console.log(enemies);
+        // console.log(enemies);
     }
-    if (data.type === 'updatePlayerCells') {
+
+    if (data.type === 'updateNextPlayerCells') {
         let sq = data.cell;
         if (sq.owner !== player.name) {
             grid[sq.x][sq.y].owner = sq.owner;
             grid[sq.x][sq.y].fresh = sq.fresh;
             grid[sq.x][sq.y].claimed = sq.claimed;
+        }
+    }
+
+    if (data.type === 'updateCurrentPlayerCells') {
+        let sq = data.cell;
+        if (sq.owner !== player.name) {
+            grid[sq.x][sq.y].owner = sq.owner;
+            grid[sq.x][sq.y].fresh = sq.fresh;
+            grid[sq.x][sq.y].claimed = sq.claimed;
+        }
+    }
+
+    if (data.type === 'playerDead') {
+        if (data.player.name === player.name) {
+            player.dead = data.player.dead;
         }
     }
 
@@ -141,13 +157,17 @@ let sketch = (level) => {
     };
 
     level.drawPlayers = () => {
-        level.fill(player.color.r, player.color.g, player.color.b);
-        level.rect(grid[player.x][player.y].posX, grid[player.x][player.y].posY, player.size, gridSize);
+        if (!player.dead) {
+            level.fill(player.color.r, player.color.g, player.color.b);
+            level.rect(grid[player.x][player.y].posX, grid[player.x][player.y].posY, player.size, gridSize);
+        }
 
         if (enemies.length > 0) {
             enemies.forEach((enemy) => {
-                level.fill(enemy.color.r, enemy.color.g, enemy.color.b);
-                level.rect(grid[enemy.x][enemy.y].posX, grid[enemy.x][enemy.y].posY, enemy.size, gridSize);
+                if (!enemy.dead) {
+                    level.fill(enemy.color.r, enemy.color.g, enemy.color.b);
+                    level.rect(grid[enemy.x][enemy.y].posX, grid[enemy.x][enemy.y].posY, enemy.size, gridSize);
+                }
             });
         }
     };
@@ -174,18 +194,16 @@ let sketch = (level) => {
         };
         console.log(player.name);
 
-        // grid[randomX][randomY].owner = username;
-        // grid[randomX][randomY].fresh = false;
-        // grid[randomX][randomY].claimed = true;
+        grid[randomX][randomY].owner = username;
+        grid[randomX][randomY].fresh = false;
+        grid[randomX][randomY].claimed = true;
+        ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: grid[randomX][randomY] }));
     };
 
     level.playerController = () => {
-        if (!player.dead) {
-            //level.checkBase();
-            if (level.playerMovement()) {
-                level.drawPlayers();
-            }
-        }
+        //level.checkBase();
+        level.playerMovement();
+        level.drawPlayers();
     };
 
     level.playerDirection = () => {
@@ -229,6 +247,7 @@ let sketch = (level) => {
     };
 
     level.playerMovement = () => {
+        if (player.dead) return;
         let currentSquare = grid[player.x][player.y];
         let nextSquare = level.playerDirection();
 
@@ -238,15 +257,17 @@ let sketch = (level) => {
                 level.playerDeath();
                 return false;
             } else if (!currentSquare.fresh) {
-                //playerTrail.push(currentSquare);
+                player.trail.push(currentSquare);
             }
             if (!currentSquare.claimed) {
-                //currentSquare.fresh = true;
+                currentSquare.fresh = true;
             }
+            level.killEnemy(nextSquare);
             nextSquare.owner = username;
             player.x = nextSquare.x;
             player.y = nextSquare.y;
-            ws.send(JSON.stringify({ type: 'updatePlayerCells', data: nextSquare }));
+            ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: currentSquare }));
+            ws.send(JSON.stringify({ type: 'updateNextPlayerCells', data: nextSquare }));
         }
         return true;
     };
@@ -256,11 +277,35 @@ let sketch = (level) => {
         console.log(username + ' is dead');
         for (let i = 0; i < numColumns; i++) {
             for (let j = 0; j < numRows; j++) {
-                if (grid[i][j].fresh || grid[i][j].claimed) {
+                if ((grid[i][j].fresh || grid[i][j].claimed || grid[i][j].owner !== 'none') && player.name === grid[i][j].owner) {
                     grid[i][j].fresh = false;
                     grid[i][j].claimed = false;
                     grid[i][j].owner = 'none';
+                    ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: grid[i][j] }));
                 }
+            }
+        }
+    };
+
+    level.killEnemy = (sq) => {
+        if (sq.fresh && sq.owner !== player.name) {
+            console.log('killing ' + sq.owner);
+            const enemy = enemies.find((enemy) => enemy.name === sq.owner);
+            if (enemy) {
+                enemy.dead = true;
+                sq.fresh = true;
+                sq.owner = player.name;
+                for (let i = 0; i < numColumns; i++) {
+                    for (let j = 0; j < numRows; j++) {
+                        if ((grid[i][j].fresh || grid[i][j].claimed || grid[i][j].owner !== 'none') && enemy.name === grid[i][j].owner) {
+                            grid[i][j].fresh = false;
+                            grid[i][j].claimed = false;
+                            grid[i][j].owner = 'none';
+                            ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: grid[i][j] }));
+                        }
+                    }
+                }
+                ws.send(JSON.stringify({ type: 'playerDead', data: enemy }));
             }
         }
     };
@@ -318,14 +363,27 @@ let sketch = (level) => {
                 level.noFill();
                 level.rect(square.posX, square.posY, gridSize, gridSize);
                 level.textAlign(level.CENTER, level.CENTER);
-                level.text(square.x + ',' + square.y, square.posX + gridSize / 2, square.posY + gridSize / 2);
+                level.text(square.x + ',' + square.y + (square.owner !== 'none' ? ' O' : ''), square.posX + gridSize / 2, square.posY + gridSize / 2);
 
-                if (square.fresh && !square.claimed) {
-                    level.fill(player.color.r, player.color.g, player.color.b, 150);
-                    level.rect(square.posX, square.posY, gridSize, gridSize);
-                } else if (square.claimed) {
-                    level.fill(player.color.r - 20, player.color.g - 20, player.color.b - 20);
-                    level.rect(square.posX, square.posY, gridSize, gridSize);
+                if (square.owner === player.name) {
+                    if (square.fresh && !square.claimed) {
+                        level.fill(player.color.r, player.color.g, player.color.b, 150);
+                        level.rect(square.posX, square.posY, gridSize, gridSize);
+                    } else if (square.claimed) {
+                        level.fill(player.color.r - 20, player.color.g - 20, player.color.b - 20);
+                        level.rect(square.posX, square.posY, gridSize, gridSize);
+                    }
+                } else if (square.owner !== 'none') {
+                    if (enemies.length > 0) {
+                        const enemy = enemies.find((enemy) => square.owner === enemy.name);
+                        if (square.fresh && !square.claimed) {
+                            level.fill(enemy.color.r, enemy.color.g, enemy.color.b, 150);
+                            level.rect(square.posX, square.posY, gridSize, gridSize);
+                        } else if (square.claimed) {
+                            level.fill(enemy.color.r - 20, enemy.color.g - 20, enemy.color.b - 20);
+                            level.rect(square.posX, square.posY, gridSize, gridSize);
+                        }
+                    }
                 }
             }
         }
