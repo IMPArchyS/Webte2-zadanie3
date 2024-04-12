@@ -7,9 +7,9 @@ let username = 'UUID';
 let userColor;
 let availColors = {
     red: { r: 255, g: 0, b: 0 },
-    green: { r: 0, g: 128, b: 0 },
+    green: { r: 64, g: 196, b: 64 },
     yellow: { r: 255, g: 255, b: 0 },
-    blue: { r: 0, g: 0, b: 255 },
+    blue: { r: 55, g: 108, b: 255 },
     pink: { r: 255, g: 192, b: 203 },
     orange: { r: 255, g: 165, b: 0 },
 };
@@ -155,11 +155,12 @@ let sketch = (level) => {
         level.playerController();
         ws.send(JSON.stringify({ type: 'player', data: player }));
         level.drawGrid();
+        level.drawPlayers();
         level.checkWinCondition();
     };
 
     level.checkWinCondition = () => {
-        if (!player.dead && enemies.every((enemy) => enemy.dead)) {
+        if (!player.dead && enemies.every((enemy) => enemy.dead) && enemies.length > 0) {
             level.noLoop();
             ws.send(JSON.stringify({ type: 'WonGame', data: player }));
         } else if (gameEnded) {
@@ -175,15 +176,25 @@ let sketch = (level) => {
 
     level.drawPlayers = () => {
         if (!player.dead) {
+            level.fill(player.color.r - 100, player.color.g - 100, player.color.b - 100);
+            level.rect(grid[player.x][player.y].posX, grid[player.x][player.y].posY, gridSize, gridSize);
+
+            level.noStroke();
             level.fill(player.color.r, player.color.g, player.color.b);
-            level.rect(grid[player.x][player.y].posX, grid[player.x][player.y].posY, player.size, gridSize);
+            level.rect(grid[player.x][player.y].posX + 5, grid[player.x][player.y].posY + 5, gridSize - 10, gridSize - 10);
+            level.stroke(255);
         }
 
         if (enemies.length > 0) {
             enemies.forEach((enemy) => {
                 if (!enemy.dead) {
+                    level.fill(enemy.color.r - 100, enemy.color.g - 100, enemy.color.b - 100);
+                    level.rect(grid[enemy.x][enemy.y].posX + 5, grid[enemy.x][enemy.y].posY + 5, gridSize - 10, gridSize - 10);
+
+                    level.noStroke();
                     level.fill(enemy.color.r, enemy.color.g, enemy.color.b);
-                    level.rect(grid[enemy.x][enemy.y].posX, grid[enemy.x][enemy.y].posY, enemy.size, gridSize);
+                    level.rect(grid[enemy.x][enemy.y].posX, grid[enemy.x][enemy.y].posY, gridSize, gridSize);
+                    level.stroke(255);
                 }
             });
         }
@@ -220,7 +231,17 @@ let sketch = (level) => {
     level.playerController = () => {
         level.checkBase();
         level.playerMovement();
-        level.drawPlayers();
+        level.playerCells();
+    };
+
+    level.playerCells = () => {
+        for (let i = player.claimedCells.length - 1; i >= 0; i--) {
+            let sq = player.claimedCells[i];
+            if (sq.owner !== username || !sq.claimed) {
+                player.claimedCells.splice(i, 1);
+            }
+        }
+        ws.send(JSON.stringify({ type: 'player', data: player }));
     };
 
     level.playerDirection = () => {
@@ -339,6 +360,8 @@ let sketch = (level) => {
                 cell.owner = username;
                 ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: cell }));
             });
+            player.claimedCells.push(...player.cellsToFill.filter((cell) => !player.claimedCells.includes(cell)));
+            player.cellsToFill = [];
             return true;
         } else {
             return false;
