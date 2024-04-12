@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="css/game.css">
     <script src="node_modules/p5/lib/p5.min.js"></script>
     <script src="node_modules/jquery/dist/jquery.min.js"></script>
-    <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
     <title>PaperSockets</title>
 </head>
 
@@ -34,13 +33,32 @@
             </div>
         </div>
     </div>
-    </div>
     <div class="d-none container my-2 impGame" id="canvas-container">
         <div class='impGUI text-center text-white impBold position-absolute bg-dark'>
             <div class="d-flex justify-content-between">
                 <h4 class="impGUI text-center text-white impBold bg-dark">Your ID: <span
                         class="impPlayerTag impBold bg-dark" id="aliasGame"></span></h4>
-                <h4 class="impGUI text-center text-white impBold bg-dark">TIME LEFT:</h4>
+                <h4 class="impGUI text-center text-white impBold bg-dark">TIME LEFT:<span
+                        class="impGUI text-center text-white impBold bg-dark" id="timerSpan"></span></h4>
+                </h4>
+            </div>
+        </div>
+    </div>
+    <!-- Modal -->
+    <div class="modal fade" id="gameOverModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true"
+        data-backdrop="static" data-keyboard="false">
+        <div class=" modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header justify-content-center text-center">
+                    <h3 class="modal-title impBold ">GAME OVER</h3>
+                </div>
+                <div class="modal-body">
+                    <h3 class="text-center text-white impBold">Winner is: <span class="impBold" id="WinnerAlias"></span>
+                    </h3>
+                </div>
+                <div class="modal-footer d-flex justify-content-center">
+                    <button type="button" class="btn btn-primary" onclick="location.reload()">Return to Lobby</button>
+                </div>
             </div>
         </div>
     </div>
@@ -51,6 +69,6 @@
     </footer>
 </body>
 <script type="module" src="js/Lobby.js"></script>
-<script type="module" src="js/MP.js"></script>
+<script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
 
 </html>
