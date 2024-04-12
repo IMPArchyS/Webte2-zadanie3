@@ -140,6 +140,7 @@ ws.onclose = function (e) {};
 let sketch = (level) => {
     level.preload = () => {};
 
+    /// base p5 function for initialisation of the canvas
     level.setup = () => {
         let canvas = level.createCanvas(window.innerWidth, window.innerHeight);
         canvas.parent('canvas-container').addClass('impCanvas');
@@ -150,6 +151,7 @@ let sketch = (level) => {
         level.frameRate(constants.PLAYER_SPEED);
     };
 
+    /// Base p5 function for drawing each frame
     level.draw = () => {
         level.background(50, 50, 50, 255);
         level.playerController();
@@ -159,6 +161,14 @@ let sketch = (level) => {
         level.checkWinCondition();
     };
 
+    /// Base p5 function if window is resized
+    level.windowResized = () => {
+        let containerWidth = level.select('#canvas-container').width;
+        level.resizeCanvas(containerWidth, level.select('#canvas-container').height);
+        level.updateGridSize();
+    };
+
+    /// Function for checking if one player is alive
     level.checkWinCondition = () => {
         if (!player.dead && enemies.every((enemy) => enemy.dead) && enemies.length > 0) {
             level.noLoop();
@@ -168,29 +178,27 @@ let sketch = (level) => {
         }
     };
 
-    level.windowResized = () => {
-        let containerWidth = level.select('#canvas-container').width;
-        level.resizeCanvas(containerWidth, level.select('#canvas-container').height);
-        level.updateGridSize();
-    };
-
+    /// Function for drawing players to the grid
     level.drawPlayers = () => {
+        // Draw Player if not dead
         if (!player.dead) {
+            // Player Outline (darker color)
             level.fill(player.color.r - 100, player.color.g - 100, player.color.b - 100);
             level.rect(grid[player.x][player.y].posX, grid[player.x][player.y].posY, gridSize, gridSize);
-
+            // Player body
             level.noStroke();
             level.fill(player.color.r, player.color.g, player.color.b);
             level.rect(grid[player.x][player.y].posX + 5, grid[player.x][player.y].posY + 5, gridSize - 10, gridSize - 10);
             level.stroke(255);
         }
-
+        // Draw Enemies
         if (enemies.length > 0) {
             enemies.forEach((enemy) => {
                 if (!enemy.dead) {
+                    // Enemy Outline (darker color)
                     level.fill(enemy.color.r - 100, enemy.color.g - 100, enemy.color.b - 100);
                     level.rect(grid[enemy.x][enemy.y].posX + 5, grid[enemy.x][enemy.y].posY + 5, gridSize - 10, gridSize - 10);
-
+                    // Enemy Body
                     level.noStroke();
                     level.fill(enemy.color.r, enemy.color.g, enemy.color.b);
                     level.rect(grid[enemy.x][enemy.y].posX, grid[enemy.x][enemy.y].posY, gridSize, gridSize);
@@ -200,14 +208,16 @@ let sketch = (level) => {
         }
     };
 
+    /// Function for creating the player at a random position
     level.createPlayer = () => {
+        // set random location that isnt occupied
         let randomX, randomY, randomFacing;
         do {
             randomX = Math.floor(Math.random() * numColumns);
             randomY = Math.floor(Math.random() * numRows);
             randomFacing = ['N', 'S', 'W', 'E'][Math.floor(Math.random() * 4)];
         } while (grid[randomX][randomY].owner !== 'none');
-
+        // init player
         player = {
             name: username,
             x: randomX,
@@ -220,21 +230,23 @@ let sketch = (level) => {
             color: { r: player.color.r, g: player.color.g, b: player.color.b },
             dead: false,
         };
-        console.log(player.name);
-
+        // set the cell to occupied for base drawing point
         grid[randomX][randomY].owner = username;
         grid[randomX][randomY].fresh = false;
         grid[randomX][randomY].claimed = true;
         ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: grid[randomX][randomY] }));
     };
 
+    /// Function for bundling player functions
     level.playerController = () => {
         level.checkBase();
         level.playerMovement();
         level.playerCells();
     };
 
+    /// Function for updating the number of cells the player owns
     level.playerCells = () => {
+        // check if cells in the claimed array are still owned by the player
         for (let i = player.claimedCells.length - 1; i >= 0; i--) {
             let sq = player.claimedCells[i];
             if (sq.owner !== username || !sq.claimed) {
@@ -244,9 +256,10 @@ let sketch = (level) => {
         ws.send(JSON.stringify({ type: 'player', data: player }));
     };
 
+    /// Function for setting the player direction
     level.playerDirection = () => {
         let nextSquare;
-
+        // keyboard input either WASD or ARROWS
         level.keyPressed = () => {
             if (level.keyCode === constants.KEY_A || level.keyCode === level.LEFT_ARROW) {
                 if (player.facing !== 'E') {
@@ -284,6 +297,7 @@ let sketch = (level) => {
         return nextSquare;
     };
 
+    /// Function for moving the player
     level.playerMovement = () => {
         if (player.dead) return;
         let currentSquare = grid[player.x][player.y];
@@ -291,15 +305,19 @@ let sketch = (level) => {
 
         // Move the player to the next square if it's not occupied and not null
         if (nextSquare) {
+            // if the player hits his trail the player dies
             if (nextSquare.fresh && nextSquare.owner === username) {
                 level.playerDeath();
                 return false;
             } else if (!currentSquare.fresh) {
+                // if cell is empty add to the trail
                 player.trail.push(currentSquare);
             }
             if (!currentSquare.claimed) {
+                // if the cell isnt claimed add as fresh for the ability to crash on it
                 currentSquare.fresh = true;
             }
+            // check if enemy is on the cell and update player position
             level.killEnemy(nextSquare);
             if (nextSquare.owner !== player.name && nextSquare.claimed) nextSquare.claimed = false;
             nextSquare.owner = username;
@@ -311,6 +329,7 @@ let sketch = (level) => {
         return true;
     };
 
+    /// Function for destroying the player and removing his cells
     level.playerDeath = () => {
         player.dead = true;
         console.log(username + ' is dead');
@@ -326,10 +345,13 @@ let sketch = (level) => {
         }
     };
 
+    /// Function for destroying the enemy that the player hit
     level.killEnemy = (sq) => {
+        // if player is on fresh cell
         if (sq.fresh && sq.owner !== player.name) {
             console.log('killing ' + sq.owner);
             const enemy = enemies.find((enemy) => enemy.name === sq.owner);
+            // if the owner is an enemy destroy him and set his cells to not occupied
             if (enemy) {
                 enemy.dead = true;
                 sq.fresh = true;
@@ -349,6 +371,7 @@ let sketch = (level) => {
         }
     };
 
+    /// Function for checking if the player was in the base to fill his cells
     level.checkBase = () => {
         if (grid[player.x][player.y].claimed && grid[player.x][player.y].owner === player.name) {
             console.log('FILL for ' + username);
@@ -368,6 +391,7 @@ let sketch = (level) => {
         }
     };
 
+    /// Function to determine each cell in the inside of the player trail
     level.fillLoop = (Trail) => {
         let gotCells = [];
         const minX = Math.min(...Trail.map((pos) => pos.x));
@@ -390,6 +414,7 @@ let sketch = (level) => {
         return gotCells;
     };
 
+    /// Function for helping to determine each cell inside the player trail
     level.fillGrid = (x, y, Trail) => {
         let intersections = 0;
         for (let i = 0; i < Trail.length; i++) {
@@ -406,13 +431,16 @@ let sketch = (level) => {
         return intersections % 2 !== 0;
     };
 
+    /// Function for creating the base responsive grid
     level.createGrid = () => {
+        // calculate the grid size to fit the screen
         gridSize = Math.min(level.width - margin * 2, level.height - margin * 2) / Math.max(numColumns, numRows);
         xOffset = margin + (level.width - gridSize * numColumns - margin * 2) / 2;
         yOffset = margin + (level.height - gridSize * numRows - margin * 2) / 2;
         for (let i = 0; i < numColumns; i++) {
             grid[i] = [];
             for (let j = 0; j < numRows; j++) {
+                // create each cell and set its atributes
                 let x = xOffset + i * gridSize;
                 let y = yOffset + j * gridSize;
 
@@ -429,9 +457,9 @@ let sketch = (level) => {
                 grid[i][j] = square;
             }
         }
-        //ws.send(JSON.stringify({ type: 'startingGrid', data: grid }));
     };
 
+    /// Function for updating the grid size on window resize
     level.updateGridSize = () => {
         if (grid.length > 0) {
             gridSize = Math.min(level.width - margin * 2, level.height - margin * 2) / Math.max(numColumns, numRows);
@@ -449,18 +477,21 @@ let sketch = (level) => {
         }
     };
 
+    /// Function for drawing the grid and coloring the player cells
     level.drawGrid = () => {
         level.stroke(255);
         level.strokeWeight(1);
 
         for (let i = 0; i < numColumns; i++) {
             for (let j = 0; j < numRows; j++) {
+                // if the cell isnt yet occupied by a player
                 let square = grid[i][j];
                 level.noFill();
                 level.rect(square.posX, square.posY, gridSize, gridSize);
                 level.textAlign(level.CENTER, level.CENTER);
                 level.text(square.x + ',' + square.y + (square.owner !== 'none' ? ' O' : ''), square.posX + gridSize / 2, square.posY + gridSize / 2);
 
+                // if the player is the current client
                 if (square.owner === player.name) {
                     if (square.fresh && !square.claimed) {
                         level.fill(player.color.r, player.color.g, player.color.b, 150);
@@ -470,6 +501,7 @@ let sketch = (level) => {
                         level.rect(square.posX, square.posY, gridSize, gridSize);
                     }
                 } else if (square.owner !== 'none') {
+                    // if the player is another client
                     if (enemies.length > 0) {
                         const enemy = enemies.find((enemy) => square.owner === enemy.name);
                         if (square.fresh && !square.claimed) {
