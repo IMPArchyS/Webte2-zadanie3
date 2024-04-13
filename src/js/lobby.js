@@ -5,10 +5,10 @@ $(function () {
     const playerList = document.getElementById('playerList');
     const timerSpan = document.getElementById('timerSpan');
     const gameOverModal = $('#gameOverModal');
-    gameOverModal.modal({ backdrop: 'static', keyboard: false });
     const gameOverModalText = $('#WinnerAlias');
+    gameOverModal.modal({ backdrop: 'static', keyboard: false });
 
-    let maxTime = 999;
+    const maxTime = 900;
     let username = 'UUID';
     let userColor;
     let availColors = {
@@ -108,7 +108,6 @@ $(function () {
             }
         }
         if (data.type === 'startGame') {
-            console.log('GAME STARTED');
             $('#menuContainer').addClass('d-none');
             $('#headerSockets').addClass('d-none');
             $('#canvas-container').removeClass('d-none');
@@ -116,7 +115,6 @@ $(function () {
         }
 
         if (data.type === 'initPlayers') {
-            console.log('INIT PLAYERS');
             if (data.player.name !== username) {
                 enemies.push(data.player);
             }
@@ -124,11 +122,16 @@ $(function () {
 
         if (data.type === 'updateNextPlayerCells') {
             let sq = data.cell;
-            if (sq.owner !== player.name) {
-                grid[sq.x][sq.y].owner = sq.owner;
-                grid[sq.x][sq.y].fresh = sq.fresh;
-                grid[sq.x][sq.y].claimed = sq.claimed;
-            }
+            grid[sq.x][sq.y].owner = sq.owner;
+            grid[sq.x][sq.y].fresh = sq.fresh;
+            grid[sq.x][sq.y].claimed = sq.claimed;
+        }
+
+        if (data.type === 'updateCurrentPlayerCells') {
+            let sq = data.cell;
+            grid[sq.x][sq.y].owner = sq.owner;
+            grid[sq.x][sq.y].fresh = sq.fresh;
+            grid[sq.x][sq.y].claimed = sq.claimed;
         }
 
         if (data.type === 'WonGame') {
@@ -165,22 +168,13 @@ $(function () {
                 let winnerColor = findWinnerColor(winners[0]);
 
                 gameOverModalText.addClass('imp-' + winnerColor);
-                gameOverModalText.text(p.name);
+                gameOverModalText.text(winners[0].name);
             } else if (winners.length > 1) {
                 gameOverModal.modal('show');
                 gameOverModalText.text('NOBODY');
                 for (let i = 0; i < winners.length; i++) {
                     console.log(winners[i].name);
                 }
-            }
-        }
-
-        if (data.type === 'updateCurrentPlayerCells') {
-            let sq = data.cell;
-            if (sq.owner !== player.name) {
-                grid[sq.x][sq.y].owner = sq.owner;
-                grid[sq.x][sq.y].fresh = sq.fresh;
-                grid[sq.x][sq.y].claimed = sq.claimed;
             }
         }
 
@@ -203,6 +197,19 @@ $(function () {
                     existingEnemy.claimedCells = data.player.claimedCells;
                     existingEnemy.color = data.player.color;
                     existingEnemy.dead = data.player.dead;
+                }
+            }
+        }
+
+        if (data.type === 'updateOpponent') {
+            console.log('Updating Opponent');
+            if (data.player.name === username) {
+                if (player) {
+                    player.cellsToFill = data.player.cellsToFill;
+                    player.claimedCells = data.player.claimedCells;
+                    player.trail = data.player.trail;
+                    player.color = data.player.color;
+                    player.dead = data.player.dead;
                 }
             }
         }
@@ -237,6 +244,7 @@ $(function () {
             level.drawGrid();
             level.drawPlayers();
             level.checkWinCondition();
+            window.p = player;
         };
 
         /// Base p5 function if window is resized
@@ -394,7 +402,19 @@ $(function () {
                     return false;
                 } else if (!currentSquare.fresh) {
                     // if cell is empty add to the trail
-                    player.trail.push(currentSquare);
+                    if (currentSquare.claimed && currentSquare.owner !== player.name) {
+                        const enemy = enemies.find((enemy) => enemy.name === currentSquare.owner);
+                        if (enemy) {
+                            if (enemy.trail.some((cell) => cell.x === currentSquare.x && cell.y === currentSquare.y)) {
+                                const index = enemy.trail.findIndex((cell) => cell.x === currentSquare.x && cell.y === currentSquare.y);
+                                enemy.trail.splice(index, 1);
+                                ws.send(JSON.stringify({ type: 'updateOpponent', data: enemy }));
+                            }
+                        }
+                    }
+                    if (!player.trail.some((cell) => cell.x === currentSquare.x && cell.y === currentSquare.y)) {
+                        player.trail.push(currentSquare);
+                    }
                 }
                 if (!currentSquare.claimed) {
                     // if the cell isnt claimed add as fresh for the ability to crash on it
@@ -431,7 +451,7 @@ $(function () {
         /// Function for destroying the enemy that the player hit
         level.killEnemy = (sq) => {
             // if player is on fresh cell
-            if (sq.fresh && sq.owner !== player.name) {
+            if ((sq.fresh || !sq.claimed) && sq.owner !== player.name) {
                 console.log('killing ' + sq.owner);
                 const enemy = enemies.find((enemy) => enemy.name === sq.owner);
                 // if the owner is an enemy destroy him and set his cells to not occupied
@@ -456,8 +476,7 @@ $(function () {
 
         /// Function for checking if the player was in the base to fill his cells
         level.checkBase = () => {
-            if (grid[player.x][player.y].claimed && grid[player.x][player.y].owner === player.name) {
-                console.log('FILL for ' + username);
+            if (grid[player.x][player.y].claimed && grid[player.x][player.y].owner !== 'none') {
                 player.cellsToFill = level.fillLoop(player.trail);
                 if (player.cellsToFill.length < 1) player.trail = [];
                 player.cellsToFill.forEach((cell) => {
@@ -466,8 +485,13 @@ $(function () {
                     cell.owner = username;
                     ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: cell }));
                 });
-                player.claimedCells.push(...player.cellsToFill.filter((cell) => !player.claimedCells.includes(cell)));
+                //player.claimedCells.push(...player.cellsToFill.filter((cell) => !player.claimedCells.includes(cell)));
                 player.cellsToFill = [];
+                player.trail = [];
+                // console.log('=== SYNC TEST ====');
+                // console.log(player);
+                // console.log('=======');
+                // console.log(grid);
                 return true;
             } else {
                 return false;
@@ -572,8 +596,6 @@ $(function () {
                     level.noFill();
 
                     level.rect(square.posX, square.posY, gridSize, gridSize);
-                    // level.textAlign(level.CENTER, level.CENTER);
-                    // level.text(square.x + ',' + square.y + (square.owner !== 'none' ? ' O' : ''), square.posX + gridSize / 2, square.posY + gridSize / 2);
 
                     // if the player is the current client
                     if (square.owner === player.name) {
@@ -597,8 +619,17 @@ $(function () {
                             }
                         }
                     }
+                    level.textAlign(level.CENTER, level.CENTER);
+                    level.text(
+                        square.x + ',' + square.y + (square.owner !== 'none' ? ' O' : ''),
+                        square.posX + gridSize / 2,
+                        square.posY + gridSize / 2
+                    );
                 }
             }
         };
     };
+    window.grid = grid;
+    window.p = player;
+    window.e = enemies;
 });

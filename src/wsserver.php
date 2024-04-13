@@ -84,6 +84,12 @@ $ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_wor
             $conn->send(json_encode(['type' => 'gotPlayer', "player" => $message->data]));
         }
     }
+
+    if ($message->type === "updateOpponent") {
+        foreach ($ws_worker->connections as $conn) {
+            $conn->send(json_encode(['type' => 'updateOpponent', "player" => $message->data]));
+        }
+    }
 };
 
 $ws_worker->onClose = function ($connection) use ($ws_worker, &$userList, &$userColors) {
