@@ -1,6 +1,7 @@
 <?php
 use Workerman\Worker;
 use Workerman\Connection\TcpConnection;
+use Workerman\Lib\Timer;
 
 require_once __DIR__ . '/vendor/autoload.php';
 
@@ -10,9 +11,9 @@ $ws_worker->count = 1; // 1 proces
 $userList = array();
 $userColors = array();
 $colors = ['red', 'green', 'yellow', 'blue', "pink", "orange"];
+$timer_id = null;
+$countdown_id = null;
 
-$grid = array();
-$globalGrid = [];
 
 $ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList, &$colors, &$userColors) {
     $uuid = uniqid();
@@ -28,11 +29,59 @@ $ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList, &$co
 };
 
 // When receiving data from the client, return "hello $data" to the client
-$ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_worker, &$userList, &$grid, &$globalGrid) {
+$ws_worker->onMessage = function ($connection, $data) use ($ws_worker, &$userList, &$timer_id, &$countdown_id) {
     $message = json_decode($data);
+
     if ($message->type === 'startGame') {
         foreach ($ws_worker->connections as $conn) {
             $conn->send(json_encode(['type' => 'startGame']));
+        }
+        $time_interval = 10;
+        $timer_id = Timer::add($time_interval, function () use ($ws_worker, &$userList) {
+            // Get the number of users
+            $numUsers = count($userList);
+
+            // Generate random x and y coordinates for each user
+            for ($i = 0; $i < $numUsers; $i++) {
+                $x = rand(0, 9); // Replace 100 with the maximum x value
+                $y = rand(0, 9); // Replace 100 with the maximum y value
+                $player = array_values($userList)[$i];
+                $message = json_encode(['type' => 'SpawnCell', 'x' => $x, 'y' => $y, 'user' => $player]);
+                foreach ($ws_worker->connections as $conn) {
+                    $conn->send($message);
+                }
+            }
+        });
+        $countdown = 900; // Replace with the desired countdown duration
+        $countdown_id = Timer::add(1, function () use ($ws_worker, &$countdown) {
+            // Decrement the countdown
+            $countdown--;
+
+            // Send the current countdown value to the clients
+            $message = json_encode(['type' => 'countdown', 'value' => $countdown]);
+            foreach ($ws_worker->connections as $conn) {
+                $conn->send($message);
+            }
+
+            // If the countdown has reached 0, stop the timer
+            if ($countdown <= 0) {
+                Timer::del($GLOBALS['countdown_id']);
+            }
+        });
+    }
+
+    if ($message->type === 'CellOccupied') {
+        // Get the number of users
+        $numUsers = count($ws_worker->connections);
+
+        // Generate new coordinates for each user and send them to the client
+        for ($i = 0; $i < $numUsers; $i++) {
+            $x = rand(0, 9); // Replace 100 with the maximum x value
+            $y = rand(0, 9); // Replace 100 with the maximum y value
+            $message = json_encode(['type' => 'SpawnCell', 'x' => $x, 'y' => $y]);
+            foreach ($ws_worker->connections as $conn) {
+                $conn->send($message);
+            }
         }
     }
 
@@ -43,9 +92,9 @@ $ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_wor
         }
     }
 
-    if ($message->type === "updateNextPlayerCells") {
+    if ($message->type === "updateCell") {
         foreach ($ws_worker->connections as $conn) {
-            $conn->send(json_encode(['type' => 'updateNextPlayerCells', "cell" => $message->data]));
+            $conn->send(json_encode(['type' => 'updateCell', "cell" => $message->data]));
         }
     }
 
@@ -55,22 +104,24 @@ $ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_wor
         }
     }
 
-    if ($message->type === "updateCurrentPlayerCells") {
-        foreach ($ws_worker->connections as $conn) {
-            $conn->send(json_encode(['type' => 'updateCurrentPlayerCells', "cell" => $message->data]));
-        }
-    }
-
     if ($message->type === "WonGame") {
         foreach ($ws_worker->connections as $conn) {
             $conn->send(json_encode(['type' => 'WonGame', "player" => $message->data]));
         }
+        if ($timer_id)
+            Timer::del($timer_id);
+        if ($countdown_id)
+            Timer::del($countdown_id);
     }
 
     if ($message->type === "TimeOver") {
         foreach ($ws_worker->connections as $conn) {
             $conn->send(json_encode(['type' => 'TimeOver', "player" => $message->data]));
         }
+        if ($timer_id)
+            Timer::del($timer_id);
+        if ($countdown_id)
+            Timer::del($countdown_id);
     }
 
     if ($message->type === "initPlayers") {
@@ -92,12 +143,18 @@ $ws_worker->onMessage = function (TcpConnection $connection, $data) use ($ws_wor
     }
 };
 
-$ws_worker->onClose = function ($connection) use ($ws_worker, &$userList, &$userColors) {
+$ws_worker->onClose = function ($connection) use ($ws_worker, &$userList, &$userColors, &$timer_id, &$countdown_id) {
+    unset ($ws_worker->connections[$connection->id]);
     unset ($userList[$connection->uuid]);
     unset ($userColors[$connection->uuid]);
     foreach ($ws_worker->connections as $conn) {
         $conn->send(json_encode(["users" => $userList]));
     }
+    if ($timer_id)
+        Timer::del($timer_id);
+
+    if ($countdown_id)
+        Timer::del($countdown_id);
 };
 
 // Run the worker

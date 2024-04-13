@@ -47,7 +47,7 @@ $(function () {
 
     let enemies = [];
 
-    let countdown = (seconds) => {
+    /*let countdown = (seconds) => {
         let counter = seconds;
 
         let interval = setInterval(() => {
@@ -61,8 +61,9 @@ $(function () {
             }
         }, 1000);
         return interval;
-    };
-    timerSpan.innerHTML = maxTime;
+    };*/
+
+    //timerSpan.innerHTML = maxTime;
     function findWinnerColor(p) {
         if (p && p.color) {
             let winnerColorKey = Object.keys(availColors).find(
@@ -91,6 +92,7 @@ $(function () {
             username = data.uuid;
             nameSpanG.innerHTML = '@' + username;
         }
+
         if (data.color) {
             userColor = data.color;
             player.color = availColors[userColor];
@@ -106,6 +108,22 @@ $(function () {
                 playerList.appendChild(player);
             }
         }
+
+        if (data.type === 'SpawnCell') {
+            var x = data.x;
+            var y = data.y;
+            if (grid[x][y].owner !== 'none') {
+            } else {
+                grid[x][y].special = true;
+                grid[x][y].owner = data.user[0];
+            }
+        }
+
+        if (data.type === 'countdown') {
+            let sec = data.value;
+            timerSpan.innerHTML = sec;
+        }
+
         if (data.type === 'startGame') {
             $('#menuContainer').addClass('d-none');
             $('#headerSockets').addClass('d-none');
@@ -119,14 +137,7 @@ $(function () {
             }
         }
 
-        if (data.type === 'updateNextPlayerCells') {
-            let sq = data.cell;
-            grid[sq.x][sq.y].owner = sq.owner;
-            grid[sq.x][sq.y].fresh = sq.fresh;
-            grid[sq.x][sq.y].claimed = sq.claimed;
-        }
-
-        if (data.type === 'updateCurrentPlayerCells') {
+        if (data.type === 'updateCell') {
             let sq = data.cell;
             grid[sq.x][sq.y].owner = sq.owner;
             grid[sq.x][sq.y].fresh = sq.fresh;
@@ -227,7 +238,7 @@ $(function () {
 
         /// base p5 function for initialisation of the canvas
         level.setup = () => {
-            timer = countdown(maxTime);
+            //timer = countdown(maxTime);
             let canvas = level.createCanvas(window.innerWidth, window.innerHeight);
             canvas.parent('canvas-container').addClass('impCanvas');
             level.windowResized();
@@ -258,11 +269,11 @@ $(function () {
         /// Function for checking if one player is alive
         level.checkWinCondition = () => {
             if (!player.dead && enemies.every((enemy) => enemy.dead) && enemies.length > 0) {
-                if (timer) clearInterval(timer);
+                //if (timer) clearInterval(timer);
                 level.noLoop();
                 ws.send(JSON.stringify({ type: 'WonGame', data: player }));
             } else if (gameEnded) {
-                if (timer) clearInterval(timer);
+                //if (timer) clearInterval(timer);
                 level.noLoop();
             }
         };
@@ -378,7 +389,7 @@ $(function () {
             grid[randomX][randomY].fresh = false;
             grid[randomX][randomY].claimed = true;
             player.claimedCells.push(grid[randomX][randomY]);
-            ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: grid[randomX][randomY] }));
+            ws.send(JSON.stringify({ type: 'updateCell', data: grid[randomX][randomY] }));
             playerInit = true;
         };
 
@@ -483,8 +494,8 @@ $(function () {
                 nextSquare.owner = username;
                 player.x = nextSquare.x;
                 player.y = nextSquare.y;
-                ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: currentSquare }));
-                ws.send(JSON.stringify({ type: 'updateNextPlayerCells', data: nextSquare }));
+                ws.send(JSON.stringify({ type: 'updateCell', data: currentSquare }));
+                ws.send(JSON.stringify({ type: 'updateCell', data: nextSquare }));
             }
             return true;
         };
@@ -499,7 +510,7 @@ $(function () {
                         grid[i][j].fresh = false;
                         grid[i][j].claimed = false;
                         grid[i][j].owner = 'none';
-                        ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: grid[i][j] }));
+                        ws.send(JSON.stringify({ type: 'updateCell', data: grid[i][j] }));
                     }
                 }
             }
@@ -522,7 +533,7 @@ $(function () {
                                 grid[i][j].fresh = false;
                                 grid[i][j].claimed = false;
                                 grid[i][j].owner = 'none';
-                                ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: grid[i][j] }));
+                                ws.send(JSON.stringify({ type: 'updateCell', data: grid[i][j] }));
                             }
                         }
                     }
@@ -540,7 +551,7 @@ $(function () {
                     cell.claimed = true;
                     cell.fresh = false;
                     cell.owner = username;
-                    ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: cell }));
+                    ws.send(JSON.stringify({ type: 'updateCell', data: cell }));
                 });
                 player.claimedCells.push(...player.cellsToFill.filter((cell) => !player.claimedCells.includes(cell)));
                 player.cellsToFill = [];
@@ -650,6 +661,21 @@ $(function () {
                     level.noFill();
 
                     level.rect(square.posX, square.posY, gridSize, gridSize);
+                    if (square.special) {
+                        level.fill(200);
+                        level.rect(square.posX, square.posY, gridSize, gridSize);
+
+                        if (square.owner === player.name) {
+                            level.fill(player.color.r, player.color.g, player.color.b, 255);
+                            level.circle(square.posX + gridSize / 2, square.posY + gridSize / 2, gridSize / 2);
+                        } else {
+                            const enemy = enemies.find((enemy) => square.owner === enemy.name);
+                            if (enemy) {
+                                level.fill(enemy.color.r, enemy.color.g, enemy.color.b, 255);
+                                level.circle(square.posX + gridSize / 2, square.posY + gridSize / 2, gridSize / 2);
+                            }
+                        }
+                    }
 
                     // if the player is the current client
                     if (square.owner === player.name) {
@@ -679,10 +705,6 @@ $(function () {
                         square.posX + gridSize / 2,
                         square.posY + gridSize / 2
                     );
-                    if (square.special) {
-                        level.fill(200);
-                        level.rect(square.posX, square.posY, gridSize, gridSize);
-                    }
                 }
             }
         };
