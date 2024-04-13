@@ -39,6 +39,7 @@ $(function () {
         facing: 0,
         trail: [],
         cellsToFill: [],
+        lastFilledCells: [],
         claimedCells: [],
         color: { r: 0, g: 0, b: 0 },
         dead: false,
@@ -70,11 +71,9 @@ $(function () {
             if (winnerColorKey) {
                 return winnerColorKey;
             } else {
-                console.log('No matching color found in availColors');
                 return null;
             }
         } else {
-            console.log('No winners or winner has no color');
             return null;
         }
     }
@@ -184,6 +183,20 @@ $(function () {
             }
         }
 
+        if (data.type === 'updateOpponent') {
+            console.log('Updating Opponent');
+            if (data.player.name === username) {
+                if (player) {
+                    player.cellsToFill = data.player.cellsToFill;
+                    player.lastFilledCells = data.player.lastFilledCells;
+                    player.claimedCells = data.player.claimedCells;
+                    player.trail = data.player.trail;
+                    player.color = data.player.color;
+                    player.dead = data.player.dead;
+                }
+            }
+        }
+
         if (data.type === 'gotPlayer') {
             if (data.player.name !== username) {
                 const existingEnemy = enemies.find((enemy) => enemy.name === data.player.name);
@@ -194,22 +207,10 @@ $(function () {
                     existingEnemy.facing = data.player.facing;
                     existingEnemy.trail = data.player.trail;
                     existingEnemy.cellsToFill = data.player.cellsToFill;
+                    existingEnemy.lastFilledCells = data.player.lastFilledCells;
                     existingEnemy.claimedCells = data.player.claimedCells;
                     existingEnemy.color = data.player.color;
                     existingEnemy.dead = data.player.dead;
-                }
-            }
-        }
-
-        if (data.type === 'updateOpponent') {
-            console.log('Updating Opponent');
-            if (data.player.name === username) {
-                if (player) {
-                    player.cellsToFill = data.player.cellsToFill;
-                    player.claimedCells = data.player.claimedCells;
-                    player.trail = data.player.trail;
-                    player.color = data.player.color;
-                    player.dead = data.player.dead;
                 }
             }
         }
@@ -278,6 +279,7 @@ $(function () {
                 level.fill(player.color.r, player.color.g, player.color.b);
                 level.rect(grid[player.x][player.y].posX + 5, grid[player.x][player.y].posY + 5, gridSize - 10, gridSize - 10);
                 level.stroke(125);
+                level.drawFacing(player);
             }
             // Draw Enemies
             if (enemies.length > 0) {
@@ -291,9 +293,62 @@ $(function () {
                         level.fill(enemy.color.r, enemy.color.g, enemy.color.b);
                         level.rect(grid[enemy.x][enemy.y].posX + 5, grid[enemy.x][enemy.y].posY + 5, gridSize - 10, gridSize - 10);
                         level.stroke(125);
+                        level.drawFacing(enemy);
                     }
                 });
             }
+        };
+
+        /// Function for drawing a triangle to know the player facing direction
+        level.drawFacing = (entity) => {
+            level.noStroke();
+            level.fill(entity.color.r - 100, entity.color.g - 100, entity.color.b - 100);
+            let triangleSize = gridSize / 2;
+            let triangleX = grid[entity.x][entity.y].posX + gridSize / 2;
+            let triangleY = grid[entity.x][entity.y].posY + gridSize / 2;
+            switch (entity.facing) {
+                case 'N':
+                    level.triangle(
+                        triangleX,
+                        triangleY - triangleSize / 2,
+                        triangleX - triangleSize / 2,
+                        triangleY + triangleSize / 2,
+                        triangleX + triangleSize / 2,
+                        triangleY + triangleSize / 2
+                    );
+                    break;
+                case 'S':
+                    level.triangle(
+                        triangleX,
+                        triangleY + triangleSize / 2,
+                        triangleX - triangleSize / 2,
+                        triangleY - triangleSize / 2,
+                        triangleX + triangleSize / 2,
+                        triangleY - triangleSize / 2
+                    );
+                    break;
+                case 'W':
+                    level.triangle(
+                        triangleX - triangleSize / 2,
+                        triangleY,
+                        triangleX + triangleSize / 2,
+                        triangleY - triangleSize / 2,
+                        triangleX + triangleSize / 2,
+                        triangleY + triangleSize / 2
+                    );
+                    break;
+                case 'E':
+                    level.triangle(
+                        triangleX + triangleSize / 2,
+                        triangleY,
+                        triangleX - triangleSize / 2,
+                        triangleY - triangleSize / 2,
+                        triangleX - triangleSize / 2,
+                        triangleY + triangleSize / 2
+                    );
+                    break;
+            }
+            level.stroke(125);
         };
 
         /// Function for creating the player at a random position
@@ -422,7 +477,9 @@ $(function () {
                 }
                 // check if enemy is on the cell and update player position
                 level.killEnemy(nextSquare);
-                if (nextSquare.owner !== player.name && nextSquare.claimed) nextSquare.claimed = false;
+                if (nextSquare.owner !== player.name && nextSquare.claimed) {
+                    nextSquare.claimed = false;
+                }
                 nextSquare.owner = username;
                 player.x = nextSquare.x;
                 player.y = nextSquare.y;
@@ -452,10 +509,10 @@ $(function () {
         level.killEnemy = (sq) => {
             // if player is on fresh cell
             if ((sq.fresh || !sq.claimed) && sq.owner !== player.name) {
-                console.log('killing ' + sq.owner);
                 const enemy = enemies.find((enemy) => enemy.name === sq.owner);
                 // if the owner is an enemy destroy him and set his cells to not occupied
                 if (enemy) {
+                    console.log('killing ' + sq.owner);
                     enemy.dead = true;
                     sq.fresh = true;
                     sq.owner = player.name;
@@ -485,13 +542,9 @@ $(function () {
                     cell.owner = username;
                     ws.send(JSON.stringify({ type: 'updateCurrentPlayerCells', data: cell }));
                 });
-                //player.claimedCells.push(...player.cellsToFill.filter((cell) => !player.claimedCells.includes(cell)));
+                player.claimedCells.push(...player.cellsToFill.filter((cell) => !player.claimedCells.includes(cell)));
                 player.cellsToFill = [];
                 player.trail = [];
-                // console.log('=== SYNC TEST ====');
-                // console.log(player);
-                // console.log('=======');
-                // console.log(grid);
                 return true;
             } else {
                 return false;
@@ -557,6 +610,7 @@ $(function () {
                         owner: 'none',
                         fresh: false,
                         claimed: false,
+                        special: false,
                         posX: x,
                         posY: y,
                         size: gridSize,
@@ -625,6 +679,10 @@ $(function () {
                         square.posX + gridSize / 2,
                         square.posY + gridSize / 2
                     );
+                    if (square.special) {
+                        level.fill(200);
+                        level.rect(square.posX, square.posY, gridSize, gridSize);
+                    }
                 }
             }
         };
