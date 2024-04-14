@@ -14,7 +14,6 @@ $colors = ['red', 'green', 'yellow', 'blue', "pink", "orange"];
 $timer_id = null;
 $countdown_id = null;
 
-
 $ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList, &$colors, &$userColors) {
     $uuid = uniqid();
     $availableColors = array_diff($colors, $userColors);
@@ -40,16 +39,19 @@ $ws_worker->onMessage = function ($connection, $data) use ($ws_worker, &$userLis
         $timer_id = Timer::add($time_interval, function () use ($ws_worker, &$userList) {
             // Get the number of users
             $numUsers = count($userList);
-
+            $cellsToSend = array ();
             // Generate random x and y coordinates for each user
             for ($i = 0; $i < $numUsers; $i++) {
-                $x = rand(0, 9); // Replace 100 with the maximum x value
-                $y = rand(0, 9); // Replace 100 with the maximum y value
-                $player = array_values($userList)[$i];
-                $message = json_encode(['type' => 'SpawnCell', 'x' => $x, 'y' => $y, 'user' => $player]);
-                foreach ($ws_worker->connections as $conn) {
-                    $conn->send($message);
-                }
+                $cell = [
+                    'x' => rand(0, 9), // Replace 100 with the maximum x value
+                    'y' => rand(0, 9), // Replace 100 with the maximum y value
+                    'user' => array_values($userList)[$i]
+                ];
+                $cellsToSend[] = $cell;
+            }
+            $message = json_encode(['type' => 'SpawnCell', 'cells' => $cellsToSend]);
+            foreach ($ws_worker->connections as $conn) {
+                $conn->send($message);
             }
         });
         $countdown = 900; // Replace with the desired countdown duration
@@ -68,21 +70,6 @@ $ws_worker->onMessage = function ($connection, $data) use ($ws_worker, &$userLis
                 Timer::del($GLOBALS['countdown_id']);
             }
         });
-    }
-
-    if ($message->type === 'CellOccupied') {
-        // Get the number of users
-        $numUsers = count($ws_worker->connections);
-
-        // Generate new coordinates for each user and send them to the client
-        for ($i = 0; $i < $numUsers; $i++) {
-            $x = rand(0, 9); // Replace 100 with the maximum x value
-            $y = rand(0, 9); // Replace 100 with the maximum y value
-            $message = json_encode(['type' => 'SpawnCell', 'x' => $x, 'y' => $y]);
-            foreach ($ws_worker->connections as $conn) {
-                $conn->send($message);
-            }
-        }
     }
 
     if ($message->type === "startGrid") {

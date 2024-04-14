@@ -8,7 +8,6 @@ $(function () {
     const gameOverModalText = $('#WinnerAlias');
     gameOverModal.modal({ backdrop: 'static', keyboard: false });
 
-    const maxTime = 900;
     let username = 'UUID';
     let userColor;
     let availColors = {
@@ -20,9 +19,8 @@ $(function () {
         orange: { r: 255, g: 165, b: 0 },
     };
 
-    const tileAmmount = 10;
+    const tileAmmount = 20;
     const margin = 20;
-    let timer;
 
     let grid = [];
     let gridSize = 0;
@@ -47,23 +45,6 @@ $(function () {
 
     let enemies = [];
 
-    /*let countdown = (seconds) => {
-        let counter = seconds;
-
-        let interval = setInterval(() => {
-            if (counter <= 0) {
-                clearInterval(interval);
-                timerSpan.innerHTML = 'OVER';
-                ws.send(JSON.stringify({ type: 'TimeOver', data: player }));
-            } else {
-                timerSpan.innerHTML = counter;
-                counter--;
-            }
-        }, 1000);
-        return interval;
-    };*/
-
-    //timerSpan.innerHTML = maxTime;
     function findWinnerColor(p) {
         if (p && p.color) {
             let winnerColorKey = Object.keys(availColors).find(
@@ -110,12 +91,32 @@ $(function () {
         }
 
         if (data.type === 'SpawnCell') {
-            var x = data.x;
-            var y = data.y;
-            if (grid[x][y].owner !== 'none') {
-            } else {
-                grid[x][y].special = true;
-                grid[x][y].owner = data.user[0];
+            let cells = data.cells;
+            let valid = true;
+            cells.forEach((cell) => {
+                if (grid[cell.x][cell.y].owner !== 'none') valid = false;
+                if (valid) {
+                    cells.forEach((cell) => {
+                        let sq = grid[cell.x][cell.y];
+                        if (sq.owner !== 'none') valid = false;
+                        if (valid) {
+                            cells.forEach((otherCell) => {
+                                if (cell !== otherCell && cell.x === otherCell.x && cell.y === otherCell.y) {
+                                    valid = false;
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+
+            if (valid) {
+                cells.forEach((cell) => {
+                    let sq = grid[cell.x][cell.y];
+                    sq.owner = cell.user[0];
+                    sq.special = true;
+                    console.log('Spawning special at x: ' + cell.x + ' y: ' + cell.y);
+                });
             }
         }
 
@@ -238,7 +239,6 @@ $(function () {
 
         /// base p5 function for initialisation of the canvas
         level.setup = () => {
-            //timer = countdown(maxTime);
             let canvas = level.createCanvas(window.innerWidth, window.innerHeight);
             canvas.parent('canvas-container').addClass('impCanvas');
             level.windowResized();
@@ -269,11 +269,9 @@ $(function () {
         /// Function for checking if one player is alive
         level.checkWinCondition = () => {
             if (!player.dead && enemies.every((enemy) => enemy.dead) && enemies.length > 0) {
-                //if (timer) clearInterval(timer);
                 level.noLoop();
                 ws.send(JSON.stringify({ type: 'WonGame', data: player }));
             } else if (gameEnded) {
-                //if (timer) clearInterval(timer);
                 level.noLoop();
             }
         };
@@ -380,6 +378,7 @@ $(function () {
                 facing: randomFacing,
                 trail: [],
                 cellsToFill: [],
+                lastFilledCells: [],
                 claimedCells: [],
                 color: { r: player.color.r, g: player.color.g, b: player.color.b },
                 dead: false,
@@ -519,7 +518,7 @@ $(function () {
         /// Function for destroying the enemy that the player hit
         level.killEnemy = (sq) => {
             // if player is on fresh cell
-            if ((sq.fresh || !sq.claimed) && sq.owner !== player.name) {
+            if ((sq.fresh || !sq.claimed) && sq.owner !== player.name && !sq.special) {
                 const enemy = enemies.find((enemy) => enemy.name === sq.owner);
                 // if the owner is an enemy destroy him and set his cells to not occupied
                 if (enemy) {
@@ -546,9 +545,31 @@ $(function () {
         level.checkBase = () => {
             if (grid[player.x][player.y].claimed && grid[player.x][player.y].owner !== 'none') {
                 player.cellsToFill = level.fillLoop(player.trail);
+                if (player.cellsToFill.length > 1) player.lastFilledCells = [...player.cellsToFill];
                 if (player.cellsToFill.length < 1) player.trail = [];
                 player.cellsToFill.forEach((cell) => {
+                    if (cell.special && cell.owner !== player.name) {
+                        const enemy = enemies.find((enemy) => cell.owner === enemy.name);
+                        if (enemy) {
+                            if (enemy.lastFilledCells.length > 1) {
+                                enemy.lastFilledCells.forEach((sq) => {
+                                    grid[sq.x][sq.y].owner = 'none';
+                                    grid[sq.x][sq.y].claimed = false;
+                                    grid[sq.x][sq.y].fresh = false;
+                                    sq.owner = 'none';
+                                    sq.claimed = false;
+                                    sq.fresh = false;
+                                    ws.send(JSON.stringify({ type: 'updateCell', data: sq }));
+                                    ws.send(JSON.stringify({ type: 'updateCell', data: grid[sq.x][sq.y] }));
+                                });
+                                enemy.lastFilledCells = [];
+                                ws.send(JSON.stringify({ type: 'updateOpponent', data: enemy }));
+                            }
+                        }
+                        console.log('claimed special cell');
+                    }
                     cell.claimed = true;
+                    cell.special = false;
                     cell.fresh = false;
                     cell.owner = username;
                     ws.send(JSON.stringify({ type: 'updateCell', data: cell }));
@@ -699,12 +720,12 @@ $(function () {
                             }
                         }
                     }
-                    level.textAlign(level.CENTER, level.CENTER);
-                    level.text(
-                        square.x + ',' + square.y + (square.owner !== 'none' ? ' O' : ''),
-                        square.posX + gridSize / 2,
-                        square.posY + gridSize / 2
-                    );
+                    // level.textAlign(level.CENTER, level.CENTER);
+                    // level.text(
+                    //     square.x + ',' + square.y + (square.owner !== 'none' ? ' O' : ''),
+                    //     square.posX + gridSize / 2,
+                    //     square.posY + gridSize / 2
+                    // );
                 }
             }
         };
