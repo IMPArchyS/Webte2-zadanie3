@@ -401,13 +401,22 @@ $(function () {
 
         /// Function for updating the number of cells the player owns
         level.playerCells = () => {
+            player.claimedCells = [];
             // check if cells in the claimed array are still owned by the player
-            for (let i = player.claimedCells.length - 1; i >= 0; i--) {
+            for (let i = 0; i < tileAmmount; i++) {
+                for (let j = 0; j < tileAmmount; j++) {
+                    let sq = grid[i][j];
+                    if (sq.claimed && sq.owner === player.name) {
+                        player.claimedCells.push(sq);
+                    }
+                }
+            }
+            /*for (let i = player.claimedCells.length - 1; i >= 0; i--) {
                 let sq = player.claimedCells[i];
                 if (sq.owner !== username || !sq.claimed) {
                     player.claimedCells.splice(i, 1);
                 }
-            }
+            }*/
             if (player.claimedCells.length < 1 && playerInit) level.playerDeath();
             ws.send(JSON.stringify({ type: 'player', data: player }));
         };
@@ -556,7 +565,9 @@ $(function () {
                                     grid[sq.x][sq.y].owner = 'none';
                                     grid[sq.x][sq.y].claimed = false;
                                     grid[sq.x][sq.y].fresh = false;
+                                    grid[sq.x][sq.y].special = false;
                                     sq.owner = 'none';
+                                    sq.special = false;
                                     sq.claimed = false;
                                     sq.fresh = false;
                                     ws.send(JSON.stringify({ type: 'updateCell', data: sq }));

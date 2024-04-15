@@ -13,6 +13,7 @@ $userColors = array();
 $colors = ['red', 'green', 'yellow', 'blue', "pink", "orange"];
 $timer_id = null;
 $countdown_id = null;
+$countdown = 20;
 
 $ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList, &$colors, &$userColors) {
     $uuid = uniqid();
@@ -28,14 +29,14 @@ $ws_worker->onConnect = function ($connection) use ($ws_worker, &$userList, &$co
 };
 
 // When receiving data from the client, return "hello $data" to the client
-$ws_worker->onMessage = function ($connection, $data) use ($ws_worker, &$userList, &$timer_id, &$countdown_id) {
+$ws_worker->onMessage = function ($connection, $data) use ($ws_worker, &$userList, &$timer_id, &$countdown_id, &$countdown) {
     $message = json_decode($data);
 
     if ($message->type === 'startGame') {
         foreach ($ws_worker->connections as $conn) {
             $conn->send(json_encode(['type' => 'startGame']));
         }
-        $time_interval = 10;
+        $time_interval = 15;
         $timer_id = Timer::add($time_interval, function () use ($ws_worker, &$userList) {
             // Get the number of users
             $numUsers = count($userList);
@@ -54,7 +55,7 @@ $ws_worker->onMessage = function ($connection, $data) use ($ws_worker, &$userLis
                 $conn->send($message);
             }
         });
-        $countdown = 120; // Replace with the desired countdown duration
+        $countdown = 90; // Replace with the desired countdown duration
         $countdown_id = Timer::add(1, function () use ($ws_worker, &$countdown) {
             // Decrement the countdown
             $countdown--;
@@ -101,7 +102,7 @@ $ws_worker->onMessage = function ($connection, $data) use ($ws_worker, &$userLis
             Timer::del($countdown_id);
     }
 
-    if ($message->type === "TimeOver") {
+    if ($countdown <= 0) {
         foreach ($ws_worker->connections as $conn) {
             $conn->send(json_encode(['type' => 'TimeOver', "player" => $message->data]));
         }
