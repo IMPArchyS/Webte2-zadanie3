@@ -54,7 +54,7 @@ $ws_worker->onMessage = function ($connection, $data) use ($ws_worker, &$userLis
                 $conn->send($message);
             }
         });
-        $countdown = 900; // Replace with the desired countdown duration
+        $countdown = 120; // Replace with the desired countdown duration
         $countdown_id = Timer::add(1, function () use ($ws_worker, &$countdown) {
             // Decrement the countdown
             $countdown--;
